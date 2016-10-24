@@ -1,0 +1,3 @@
+[submodule "quaternion"]
+	path = quaternion
+	url = https://github.com/erikbrntsn/quaternion
