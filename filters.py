@@ -1,3 +1,13 @@
+import numpy as np
+
+
+def load_src(name, fpath):
+    import os
+    import imp
+    return imp.load_source(name, os.path.join(os.path.dirname(__file__), fpath))
+
+mt = load_src('mathTools', 'quaternion/quaternionUtils.py')
+
 class CommonAxisEstimator(object):
     def __init__(self,
                  beta=0.005,

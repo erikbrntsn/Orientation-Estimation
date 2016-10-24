@@ -104,7 +104,7 @@ def quaternionFromTwoVectorObservations(vA, vB, uA, uB):
 
 
 def correctCommonAxisQuaternion(qNew, qOld):
-    # q and -q represent the same rotation, but we do not want sudden sign changes - this is just a temporary workaround, we need to find a better way to handle sign flips
+    # q and -q represent the same rotation, but sudden sign changes can be problematic - this can work as a temporary workaround. A better way to handle sign flips would be nice
     if qNew.dot(qOld) < 0:
         qNew *= -1
     return qNew
@@ -209,3 +209,27 @@ def mostOrthogonal(v):
     z = np.abs(v[2])
     rhs = (np.array([1, 0, 0]) if x < z else np.array([0, 0, 1])) if x < y else (np.array([0, 1, 0]) if y < z else np.array([0, 0, 1]))
     return np.cross(v, rhs)
+
+
+def dcm2Qua(r):
+    t = r[0, 0] + r[1, 1] + r[2, 2]
+    if t > -0.99:
+        r = np.sqrt(1 + t)
+        s = 0.5 / r
+        q = mt.Quaternion(0.5 * r,
+                          (r[2, 1] - r[1, 2]) * s,
+                          (r[0, 2] - r[2, 0]) * s,
+                          (r[1, 0] - r[0, 1]) * s)
+    elif r[1, 1] < r[0, 0] and r[2, 2] < r[0, 0]:
+        t = r[0, 0] + r[1, 1] + r[2, 2]
+        r = np.sqrt(1 + r[0, 0] - r[1, 1] - r[2, 2])
+        s = 0.5 / r
+        mt.Quaternion((r[2, 1] - r[1, 2]) * s,
+                      0.5 * r,
+                      (r[0, 1] + r[1, 0]) * s,
+                      (r[2, 0] + r[0, 2]) * s)
+    elif r[0, 0] < r[1, 1] and r[2, 2] < r[1, 1]:
+        raise NotImplemented
+    else:
+        raise NotImplemented
+    return q
