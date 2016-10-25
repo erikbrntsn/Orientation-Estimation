@@ -234,7 +234,7 @@ def esoq(b, wei):
 
 
 def esoq2(b, wei):
-    k, s, traceB, z = helper(b)
+    s, traceB, z = helper2(b)
     lambdaMax, alpha, _ = calcLambdaMaxNewtonFOAM(b, wei.sum())
     m = (lambdaMax - traceB) * ((lambdaMax + traceB) * np.identity(3) - s) - np.outer(z, z)
     adjM = adj3x3(m)
