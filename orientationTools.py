@@ -1,11 +1,11 @@
 import numpy as np
-np.random.seed(0)
 
 
 def load_src(name, fpath):
     import os
     import imp
     return imp.load_source(name, os.path.join(os.path.dirname(__file__), fpath))
+
 
 mt = load_src('mathTools', 'quaternion/quaternionUtils.py')
 
@@ -104,7 +104,8 @@ def quaternionFromTwoVectorObservations(vA, vB, uA, uB):
 
 
 def correctCommonAxisQuaternion(qNew, qOld):
-    # q and -q represent the same rotation, but sudden sign changes can be problematic - this can work as a temporary workaround. A better way to handle sign flips would be nice
+    # q and -q represent the same rotation, but sudden sign changes can be problematic - this can
+    # work as a temporary workaround. A better way to handle sign flips would be nice
     if qNew.dot(qOld) < 0:
         qNew *= -1
     return qNew
@@ -121,9 +122,9 @@ def slerp(q1, q2, t):
 
 
 def eulerToQuaternion(e):
-    """ Return quaternion representing rotation equivalent to rotation matrix R = R_Z(yaw) * R_Y(pitch) * R_X(roll)
-    from euler angles [yaw(psi), pitch(theta), roll(phi)]. Quaternion convention: [w, i, j, k] """
-
+    """ Return quaternion representing rotation equivalent to rotation matrix
+    # R = R_Z(yaw) * R_Y(pitch) * R_X(roll) from euler angles [yaw(psi), pitch(theta), roll(phi)].
+    # Quaternion convention: [w, i, j, k] """
     sYaw = np.sin(e[0] / 2)
     cYaw = np.cos(e[0] / 2)
     sPit = np.sin(e[1] / 2)
@@ -144,17 +145,17 @@ def quaternionToAxisAngle(q):
     return q[1:] / s, 2 * np.arccos(q[0])
 
 # def quaternionToEuler(q):
-#     """ Return euler angles (X <- Y <- Z) equivalent to quaternion q """
-#     e = [math.atan2(2*(q[0]*q[1] + q[2]*q[3]), 1 - 2*(q[1]**2 + q[2]**2)),
-#          math.asin(2*(q[0]*q[2] - q[3]*q[1])),
-#          math.atan2(2*(q[0]*q[3] + q[1]*q[2]), 1 - 2*(q[2]**2 + q[3]**2))]
+#     """ Return euler angles (R_X*R_Y*R_Z) equivalent to quaternion q """
+#     e = [np.arctan2(2*(q[0]*q[1] + q[2]*q[3]), 1 - 2*(q[1]**2 + q[2]**2)),
+#          np.arcsin( 2*(q[0]*q[2] - q[3]*q[1])),
+#          np.arctan2(2*(q[0]*q[3] + q[1]*q[2]), 1 - 2*(q[2]**2 + q[3]**2))]
 #     return e
 
 
 def quaternionToEuler(q):
     """ Return euler angles (R_Z*R_Y*R_X) equivalent to quaternion q """
     e = [np.arctan2(2 * (q[0] * q[3] + q[1] * q[2]), 1 - 2 * (q[2]**2 + q[3]**2)),
-         np.arcsin(2 * (q[0] * q[2] - q[3] * q[1])),
+         np.arcsin( 2 * (q[0] * q[2] - q[3] * q[1])),
          np.arctan2(2 * (q[0] * q[1] + q[2] * q[3]), 1 - 2 * (q[1]**2 + q[2]**2))]
     return e
 
@@ -183,7 +184,8 @@ def quaternionToRotMat(q):
 
 
 def eulerToRotMat(e):
-    """ Return rotation matrix rotating according to R = R_Z(yaw) * R_Y(pitch) * R_X(roll) from euler angles [yaw(psi), pitch(theta), roll(phi)] """
+    """ Return rotation matrix rotating according to R = R_Z(yaw) * R_Y(pitch) * R_X(roll) from
+    euler angles [yaw(psi), pitch(theta), roll(phi)] """
     sYaw = np.sin(e[0])
     cYaw = np.cos(e[0])
     sPit = np.sin(e[1])
@@ -207,7 +209,10 @@ def mostOrthogonal(v):
     x = np.abs(v[0])
     y = np.abs(v[1])
     z = np.abs(v[2])
-    rhs = (np.array([1, 0, 0]) if x < z else np.array([0, 0, 1])) if x < y else (np.array([0, 1, 0]) if y < z else np.array([0, 0, 1]))
+    if x < y:
+        rhs = np.array([1, 0, 0]) if x < z else np.array([0, 0, 1])
+    else:
+        rhs = np.array([0, 1, 0]) if y < z else np.array([0, 0, 1])
     return np.cross(v, rhs)
 
 

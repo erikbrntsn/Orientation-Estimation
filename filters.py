@@ -1,4 +1,6 @@
 import numpy as np
+from fromVectorObservations import davenportsQMethod
+from orientationTools import correctQuaFromVecObs, slerp
 
 
 def load_src(name, fpath):
@@ -6,60 +8,62 @@ def load_src(name, fpath):
     import imp
     return imp.load_source(name, os.path.join(os.path.dirname(__file__), fpath))
 
+
 mt = load_src('mathTools', 'quaternion/quaternionUtils.py')
+
 
 class CommonAxisEstimator(object):
     def __init__(self,
                  beta=0.005,
                  zeta=0.000005,
                  q=mt.Quaternion(),
-                 mA=np.array([1.0, 2.0, 3.0] / np.sqrt(14)),
-                 gA=np.array([0.0, 0.0, 1.0])):
+                 mE=np.array([1.0, 2.0, 3.0] / np.sqrt(14)),
+                 gE=np.array([0.0, 0.0, 1.0])):
         # Current estimate of orientation given as a quaternion
         self.q = q
-        # Weighting between quaternion estimated from vector observations and the quaternion derivative obtained from the gyroscope
+        # Weighting between quaternion estimated from vector observations and the quaternion
+        # derivative obtained from the gyroscope
         self.beta = beta
         # Gravity in the Earth frame
-        self.gA = gA
+        self.gE = gE
         # Earth's magnetic field in the Earth frame
-        self.mA = mA
+        self.mE = mE
         # Gyroscope bias estiamte
         self.gyrBias = mt.Quaternion()
         # Low pass filter weight: [0, 1], [no change, full change]
         self.zeta = zeta
-        # self.qDavenport = mt.Quaternion()
 
     def update(self, acc, gyr, mag, dt):
         acc /= np.linalg.norm(acc)
         mag /= np.linalg.norm(mag)
         gyrQ = mt.Quaternion(0, *gyr)
 
-        # Calculate absolute quaternion that minimizes Whaba's problem
-        qDavenport = davenportsQMethod(np.hstack((acc[:, None], mag[:, None])),
-                                       np.hstack((self.gA[:, None], self.mA[:, None])))
+        # Calculate quaternion that minimizes Wahba's problem
+        qWahba = davenportsQMethod(np.hstack((acc[:, None], mag[:, None])),
+                                   np.hstack((self.gE[:, None], self.mE[:, None])))
 
-        self.qDavenport = correctCommonAxisQuaternion(qDavenport, self.q)
-        qAbsolute = self.qDavenport
-        qual = 1
+        self.qWahba = correctQuaFromVecObs(qWahba, self.q)
+        qWahba = self.qWahba
 
         # Bias estimation
-        dqv = (qAbsolute - self.q) / dt
+        dqv = (qWahba - self.q) / dt
         dq_ = 0.5 * self.q * gyrQ
         bias = 2 * self.q.conjugate() * (dq_ - dqv)
-        self.gyrBias += qual**2 * self.zeta * (bias - self.gyrBias)
+        self.gyrBias += self.zeta * (bias - self.gyrBias)
 
         # Quaternion derivative estimate
         dq = 0.5 * self.q * (gyrQ - self.gyrBias)
 
-        # Weighted average of derivative integration and absolute orientation estimate - Given by the formula for quaternion slerp - https://en.wikipedia.org/wiki/slerp (and the wiki's external links)
-        print(self.q + dq)
+        # Weighted average of derivative integration and absolute orientation estimate - Given by
+        # the formula for quaternion slerp - https://en.wikipedia.org/wiki/slerp (and the wiki's
+        # external links)
         qIntegrated = self.q + dq * dt
         qIntegrated.normalize()
         # If the two quaternions are the same, then just use one instead of weighting them
-        if qAbsolute.dot(qIntegrated) > 0.9999:
-            self.q = qAbsolute
+        if qWahba.dot(qIntegrated) > 0.9999:
+            self.q = qWahba
         else:
-            self.q = slerp(qIntegrated, qAbsolute, self.beta * qual**2)
+            self.q = slerp(qIntegrated, qWahba, self.beta)
             self.q.normalize()
 
 
@@ -69,14 +73,14 @@ class MahonyEstimator(object):
                  kEst=100,
                  kB=1000,
                  q=mt.Quaternion(),
-                 mA=np.array([1.0, 2.0, 3.0]/np.sqrt(14)),
-                 gA=np.array([0.0, 0.0, 1.0])):
+                 mE=np.array([1.0, 2.0, 3.0] / np.sqrt(14)),
+                 gE=np.array([0.0, 0.0, 1.0])):
         # Current estimate of orientation given as a quaternion
         self.q = q
         # Gravity in the Earth frame
-        self.gA = gA
+        self.gE = gE
         # Earth's magnetic field in the Earth frame
-        self.mA = mA
+        self.mE = mE
         # Weight applied to vector orientation estimate
         self.kEst = kEst
         # Weight used in gyro bias estimate
@@ -90,11 +94,11 @@ class MahonyEstimator(object):
         mag /= np.linalg.norm(mag)
 
         # Calculate orientation using the two field observations
-        self.qAbsolute = davenportsQMethod(np.hstack((acc[:, None], mag[:, None])),
-                                           np.hstack((self.gA[:, None], self.mA[:, None])))
+        self.qWahba = davenportsQMethod(np.hstack((acc[:, None], mag[:, None])),
+                                        np.hstack((self.gE[:, None], self.mE[:, None])))
 
         # Estimate quaternion error
-        qTilde = self.q.conjugate() * self.qAbsolute
+        qTilde = self.q.conjugate() * self.qWahba
         # Field quaternion correction
         sv = qTilde[0] * qTilde[1:]
 
@@ -107,7 +111,6 @@ class MahonyEstimator(object):
         self.q.normalize()
 
 
-
 class MadgwickMagReadable(object):
     def __init__(self, beta, zeta):
         self.beta = beta
@@ -117,7 +120,8 @@ class MadgwickMagReadable(object):
         self.gyrBias = mt.Quaternion(0.0, 0.0, 0.0, 0.0)
 
     def derivative(self, q, v):
-        # Does not assume anything about the vector part of v. Possibilities of optimization are thus present.
+        # Does not assume anything about the vector part of v. Possibilities of optimization are
+        # thus present.
         return np.array([[ 2*v[2]*q[3] - 2*v[3]*q[2],   2*v[2]*q[2] + 2*v[3]*q[3],               -4*v[1]*q[2] + 2*v[2]*q[1] - 2*v[3]*q[0],  -4*v[1]*q[3] + 2*v[2]*q[0] + 2*v[3]*q[1]],
                          [-2*v[1]*q[3] + 2*v[3]*q[1],   2*v[1]*q[2] - 4*v[2]*q[1] + 2*v[3]*q[0],  2*v[1]*q[1] + 2*v[3]*q[3],                -2*v[1]*q[0] - 4*v[2]*q[3] + 2*v[3]*q[2]],
                          [ 2*v[1]*q[2] - 2*v[2]*q[1],   2*v[1]*q[3] - 2*v[2]*q[0] - 4*v[3]*q[1],  2*v[1]*q[0] + 2*v[2]*q[3] - 4*v[3]*q[2],   2*v[1]*q[1] + 2*v[2]*q[2]]])
@@ -149,8 +153,8 @@ class MadgwickMagReadable(object):
         gyrError = 2 * self.q.conjugate() * grad
         self.gyrBias += self.zeta * gyrError * dt
 
-        dq_omega = 0.5 * self.q * (gyr - self.gyrBias)
+        dQOmega = 0.5 * self.q * (gyr - self.gyrBias)
 
         # Update quaternion estiamte
-        self.q += (dq_omega - self.beta * grad) * dt
+        self.q += (dQOmega - self.beta * grad) * dt
         self.q.normalize()

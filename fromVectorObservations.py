@@ -3,6 +3,9 @@
 # http://mortari.tamu.edu/attitude-estimation/j03.pdf
 # http://www.malcolmdshuster.com/Pub_2007a_C_cquest_MDS.pdf
 
+# Note that the quaternion is implemented as q = (a, b*i, c*j, d*k)
+# instead of convention used in Marley's article q = (b*i, c*j, d*k, a)
+
 import numpy as np
 from scipy import linalg
 import orientationTools as ot
@@ -24,6 +27,12 @@ def adj3x3(a):
     for i in range(3):
         adj[:, i] = np.cross(a[i - 2, :], a[i - 1, :])
     return adj
+
+
+def traceAdj3x3(a):
+    return np.sum(np.array([a[1, 1] * a[2, 2] - a[2, 1] * a[1, 2] +
+                            a[0, 0] * a[2, 2] - a[2, 0] * a[0, 2] +
+                            a[0, 0] * a[1, 1] - a[1, 0] * a[0, 1]]))
 
 
 def constructB(ref, obs, wei=None):
@@ -97,7 +106,6 @@ def davenportsQMethod(b):
     k, s, traceB, z = helper(b)
     eigVal, eigVec = linalg.eig(k)
     eigVecMax = eigVec[:, eigVal.argmax()]
-    # using q = (a, b*i, c*j, d*k) instead of convention used in Marley's article q = (b*i, c*j, d*k, a)
     q = mt.Quaternion(eigVecMax[3], *eigVecMax[:3])
     return q
 
@@ -105,7 +113,7 @@ def davenportsQMethod(b):
 def quest(b, wei):
     s, traceB, z = helper2(b)
     lambdaMax, alpha, _ = calcLambdaMaxNewtonFOAM(b, wei.sum())
-    alpha = lambdaMax**2 - traceB**2 + np.trace(adj3x3(s))
+    alpha = lambdaMax**2 - traceB**2 + traceAdj3x3(s)
     gamma = alpha * (lambdaMax + traceB) - linalg.det(s)
     beta = lambdaMax - traceB
     x = (alpha * np.identity(3) + beta * s + s.dot(s)).dot(z)
@@ -150,7 +158,7 @@ def foamQ(b, wei):
 
 def calcLambdaMaxESOQ(k, s, traceB, z):
     # from http://mortari.tamu.edu/attitude-estimation/j03.pdf
-    b = -2 * traceB**2 + np.trace(adj3x3(s)) - z.dot(z)
+    b = -2 * traceB**2 + traceAdj3x3(s) - z.dot(z)
     c = 0
     I = np.arange(1, 4)
     for i in range(4):
@@ -170,7 +178,7 @@ def calcLambdaMaxESOQ(k, s, traceB, z):
 
 
 def calcLambdaMaxNewtonQUEST(s, traceB, z, lMax):
-    alpha = lMax**2 - traceB**2 + np.trace(adj3x3(s))
+    alpha = lMax**2 - traceB**2 + traceAdj3x3(s)
     gamma = alpha * (lMax + traceB) - linalg.det(s)
     beta = lMax - traceB
     x = (alpha * np.identity(3) + beta * s + s.dot(s)).dot(z)
@@ -178,7 +186,7 @@ def calcLambdaMaxNewtonQUEST(s, traceB, z, lMax):
 
 
 def calcLambdaMaxNewtonESOQ(k, s, traceB, z, lMax):
-    b = -2 * traceB**2 + np.trace(adj3x3(s)) - z.dot(z)
+    b = -2 * traceB**2 + traceAdj3x3(s) - z.dot(z)
     c = 0
     I = np.arange(1, 4)
     for i in range(4):
