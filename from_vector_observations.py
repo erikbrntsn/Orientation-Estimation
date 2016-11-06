@@ -10,7 +10,7 @@ import numpy as np
 from scipy import linalg
 import orientationTools as ot
 
-np.random.seed(2)
+# np.random.seed(2)
 
 
 def load_src(name, fpath):
@@ -75,14 +75,14 @@ def alternateSolution(b):
 
 def unconstrainedLeastSquares(b, ref, wei=None):
     if wei is None:
-        wei = np.ones(obs.shape[1])[:, None]
+        wei = np.ones(ref.shape[1])[:, None]
     return b.dot(linalg.inv(constructB(ref, ref, wei)))
 
 
 def helper(b):
-    z = -np.array([b[1, 2] - b[2, 1],
-                   b[2, 0] - b[0, 2],
-                   b[0, 1] - b[1, 0]])
+    z = np.array([b[2, 1] - b[1, 2],
+                  b[0, 2] - b[2, 0],
+                  b[1, 0] - b[0, 1]])
     s = b + b.T
     traceB = np.trace(b)
     k = np.empty((4, 4))
@@ -153,7 +153,7 @@ def foamQ(b, wei):
     kappa = 0.5 * alpha
     a = ((kappa + normBSq) * b + lambdaMax * adj3x3(b.T) - b.dot(b.T).dot(b)) / (kappa * lambdaMax - linalg.det(b))
     q = ot.dcm2Qua(a)
-    return q / q.norm()
+    return q
 
 
 def calcLambdaMaxESOQ(k, s, traceB, z):
@@ -235,7 +235,7 @@ def esoq(b, wei):
 
 def esoq2(b, wei):
     s, traceB, z = helper2(b)
-    lambdaMax, alpha, _ = calcLambdaMaxNewtonFOAM(b, wei.sum())
+    lambdaMax, _, _ = calcLambdaMaxNewtonFOAM(b, wei.sum())
     m = (lambdaMax - traceB) * ((lambdaMax + traceB) * np.identity(3) - s) - np.outer(z, z)
     adjM = adj3x3(m)
     maxCross = np.argmax(np.abs([adjM[0, 0], adjM[1, 1], adjM[2, 2]]))
@@ -254,14 +254,18 @@ def calcLambdaMax2Obs(ref, obs, wei=None):
 if __name__ == "__main__":
     # Number of observations/references
     n = 100
+
     # Generate random reference vectors
-    ref = np.random.rand(3, n)
+    ref = np.random.rand(3, n) - 0.5
     ref /= linalg.norm(ref, axis=0)
+
     # Choose a random rotation
-    trueQ = mt.Quaternion(*np.random.rand(4))
+    trueQ = mt.Quaternion(*(np.random.rand(4) - 0.5))
     trueQ.normalize()
+
     # Construct noisy observations from the chosen rotation and references
-    obs = trueQ.rotateVectors(ref) + np.random.normal(loc=0, scale=0.1, size=(3, n))
+    # obs = trueQ.rotateVectors(ref) + np.random.normal(loc=0, scale=0.1, size=(3, n))
+    obs = trueQ.rotateVectors(ref) + 0.1 * (np.random.rand(3, n) - 0.5)
     obs /= linalg.norm(obs, axis=0)
 
     wei = np.ones(n)
@@ -281,6 +285,6 @@ if __name__ == "__main__":
     print("Loss from quest rotation: {:0.4f}".format(lossFunction(quest(b, wei), ref, obs)))
     print("Loss from svd rotation: {:0.4f}".format(lossFunction(svd(b), ref, obs)))
     print("Loss from foam rotation: {:0.4f}".format(lossFunction(foam(b, wei), ref, obs)))
-    print("Loss from foamQ rotation: {:0.4f}".format(lossFunction(foam(b, wei), ref, obs)))
+    # print("Loss from foamQ rotation: {:0.4f}".format(lossFunction(foamQ(b, wei), ref, obs)))
     print("Loss from esoq rotation: {:0.4f}".format(lossFunction(esoq(b, wei), ref, obs)))
     print("Loss from esoq2 rotation: {:0.4f}".format(lossFunction(esoq2(b, wei), ref, obs)))
