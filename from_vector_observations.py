@@ -8,7 +8,7 @@
 
 import numpy as np
 from scipy import linalg
-import orientationTools as ot
+import orientation_tools as ot
 
 # np.random.seed(2)
 
@@ -19,7 +19,7 @@ def load_src(name, fpath):
     return imp.load_source(name, os.path.join(os.path.dirname(__file__), fpath))
 
 
-mt = load_src('mathTools', './quaternion/quaternionUtils.py')
+mt = load_src('mathTools', 'quaternion/quaternion.py')
 
 
 def adj3x3(a):

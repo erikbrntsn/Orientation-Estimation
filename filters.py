@@ -9,7 +9,7 @@ def load_src(name, fpath):
     return imp.load_source(name, os.path.join(os.path.dirname(__file__), fpath))
 
 
-mt = load_src('mathTools', 'quaternion/quaternionUtils.py')
+mt = load_src('mathTools', 'quaternion/quaternion.py')
 
 
 class CommonAxisEstimator(object):
@@ -17,7 +17,7 @@ class CommonAxisEstimator(object):
                  beta=0.005,
                  zeta=0.000005,
                  q=mt.Quaternion(),
-                 mE=np.array([1.0, 2.0, 3.0] / np.sqrt(14)),
+                 mE=np.array([1.0, 0.0, 0.0]),
                  gE=np.array([0.0, 0.0, 1.0])):
         # Current estimate of orientation given as a quaternion
         self.q = q
@@ -73,7 +73,7 @@ class MahonyEstimator(object):
                  kEst=100,
                  kB=1000,
                  q=mt.Quaternion(),
-                 mE=np.array([1.0, 2.0, 3.0] / np.sqrt(14)),
+                 mE=np.array([1.0, 0.0, 0.0]),
                  gE=np.array([0.0, 0.0, 1.0])):
         # Current estimate of orientation given as a quaternion
         self.q = q

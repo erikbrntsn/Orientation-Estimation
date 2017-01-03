@@ -7,7 +7,7 @@ def load_src(name, fpath):
     return imp.load_source(name, os.path.join(os.path.dirname(__file__), fpath))
 
 
-mt = load_src('mathTools', 'quaternion/quaternionUtils.py')
+mt = load_src('mathTools', 'quaternion/quaternion.py')
 
 
 def perpendicular(v, axis, normalize=False, vNormalized=True, axisNormalized=True):
@@ -238,3 +238,5 @@ def dcm2Qua(rot):
     else:
         raise NotImplemented
     return q / q.norm()
+
+# def shustersRotation(vA, vB, uA, uB):
