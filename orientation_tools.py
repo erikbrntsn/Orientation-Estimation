@@ -7,7 +7,7 @@ def load_src(name, fpath):
     return imp.load_source(name, os.path.join(os.path.dirname(__file__), fpath))
 
 
-mt = load_src('mathTools', 'quaternion/quaternionUtils.py')
+mt = load_src('mathTools', 'quaternion/quaternion.py')
 
 
 def perpendicular(v, axis, normalize=False, vNormalized=True, axisNormalized=True):
@@ -216,25 +216,27 @@ def mostOrthogonal(v):
     return np.cross(v, rhs)
 
 
-def dcm2Qua(r):
-    t = r[0, 0] + r[1, 1] + r[2, 2]
+def dcm2Qua(rot):
+    t = rot[0, 0] + rot[1, 1] + rot[2, 2]
     if t > -0.99:
         r = np.sqrt(1 + t)
         s = 0.5 / r
         q = mt.Quaternion(0.5 * r,
-                          (r[2, 1] - r[1, 2]) * s,
-                          (r[0, 2] - r[2, 0]) * s,
-                          (r[1, 0] - r[0, 1]) * s)
-    elif r[1, 1] < r[0, 0] and r[2, 2] < r[0, 0]:
-        t = r[0, 0] + r[1, 1] + r[2, 2]
-        r = np.sqrt(1 + r[0, 0] - r[1, 1] - r[2, 2])
+                          (rot[2, 1] - rot[1, 2]) * s,
+                          (rot[0, 2] - rot[2, 0]) * s,
+                          (rot[1, 0] - rot[0, 1]) * s)
+    elif rot[1, 1] < rot[0, 0] and rot[2, 2] < rot[0, 0]:
+        t = rot[0, 0] + rot[1, 1] + rot[2, 2]
+        r = np.sqrt(1 + rot[0, 0] - rot[1, 1] - rot[2, 2])
         s = 0.5 / r
-        mt.Quaternion((r[2, 1] - r[1, 2]) * s,
+        mt.Quaternion((rot[2, 1] - rot[1, 2]) * s,
                       0.5 * r,
-                      (r[0, 1] + r[1, 0]) * s,
-                      (r[2, 0] + r[0, 2]) * s)
-    elif r[0, 0] < r[1, 1] and r[2, 2] < r[1, 1]:
+                      (rot[0, 1] + rot[1, 0]) * s,
+                      (rot[2, 0] + rot[0, 2]) * s)
+    elif rot[0, 0] < rot[1, 1] and rot[2, 2] < rot[1, 1]:
         raise NotImplemented
     else:
         raise NotImplemented
-    return q
+    return q / q.norm()
+
+# def shustersRotation(vA, vB, uA, uB):
