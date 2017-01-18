@@ -20,18 +20,18 @@ class CommonAxisEstimator(object):
         # Current estimate of orientation given as a quaternion
         self.q = q
         # Gyroscope bias estiamte
-        self.gyrBias = mt.Quaternion()
+        self.gyrBias = mt.Quaternion(0.0, 0.0, 0.0, 0.0)
         # Weighting between quaternion estimated from vector observations and the quaternion
         # derivative obtained from the gyroscope
         self.beta = beta
         # Low pass filter weight: [0, 1], [no change, full change]
         self.zeta = zeta
 
-    def update(self, gyr, qVec dt):
+    def update(self, gyr, qExt, dt):
         gyrQ = mt.Quaternion(0, *gyr)
 
         # Bias estimation
-        dqv = (qVec - self.q) / dt
+        dqv = (qExt - self.q) / dt
         dq_ = 0.5 * self.q * gyrQ
         bias = 2 * self.q.conjugate() * (dq_ - dqv)
         self.gyrBias += self.zeta * (bias - self.gyrBias)
@@ -45,10 +45,10 @@ class CommonAxisEstimator(object):
         qIntegrated = self.q + dq * dt
         qIntegrated.normalize()
         # If the two quaternions are the same, then just use one instead of weighting them
-        if qVec.dot(qIntegrated) > 0.9999:
-            self.q = qVec
+        if qExt.dot(qIntegrated) > 0.9999:
+            self.q = qExt
         else:
-            self.q = slerp(qIntegrated, qVec, self.beta)
+            self.q = slerp(qIntegrated, qExt, self.beta)
             self.q.normalize()
 
 
@@ -67,9 +67,9 @@ class MahonyEstimator(object):
         # Weight used in gyro bias estimate
         self.zeta = zeta
 
-    def update(self, gyr, qVec, dt):
+    def update(self, gyr, qExt, dt):
         # Estimate quaternion error
-        qTilde = self.q.conjugate() * qVec
+        qTilde = self.q.conjugate() * qExt
         # Field quaternion correction
         sv = qTilde[0] * qTilde[1:]
         # Gyrobias estimation
@@ -86,20 +86,19 @@ class MadgwickMagReadable(object):
         self.zeta = zeta
         self.q = mt.Quaternion()
         self.g = mt.Quaternion(0.0, 0.0, 0.0, 1.0)
-        self.gyrBias = mt.Quaternion(0.0, 0.0, 0.0, 0.0)
+        self.gyrBias = np.array([0.0, 0.0, 0.0])
 
     def derivative(self, q, v):
         # Does not assume anything about the vector part of v. Possibilities of optimization are
         # thus present.
-        return np.array([[ 2*v[2]*q[3] - 2*v[3]*q[2],   2*v[2]*q[2] + 2*v[3]*q[3],               -4*v[1]*q[2] + 2*v[2]*q[1] - 2*v[3]*q[0],  -4*v[1]*q[3] + 2*v[2]*q[0] + 2*v[3]*q[1]],
-                         [-2*v[1]*q[3] + 2*v[3]*q[1],   2*v[1]*q[2] - 4*v[2]*q[1] + 2*v[3]*q[0],  2*v[1]*q[1] + 2*v[3]*q[3],                -2*v[1]*q[0] - 4*v[2]*q[3] + 2*v[3]*q[2]],
-                         [ 2*v[1]*q[2] - 2*v[2]*q[1],   2*v[1]*q[3] - 2*v[2]*q[0] - 4*v[3]*q[1],  2*v[1]*q[0] + 2*v[2]*q[3] - 4*v[3]*q[2],   2*v[1]*q[1] + 2*v[2]*q[2]]])
+        return np.array([[               2*v[2]*q[3] - 2*v[3]*q[2],                 2*v[2]*q[2] + 2*v[3]*q[3], -4*v[1]*q[2] + 2*v[2]*q[1] - 2*v[3]*q[0],  -4*v[1]*q[3] + 2*v[2]*q[0] + 2*v[3]*q[1]],
+                         [-2*v[1]*q[3] +               2*v[3]*q[1],   2*v[1]*q[2] - 4*v[2]*q[1] + 2*v[3]*q[0],  2*v[1]*q[1] +               2*v[3]*q[3],  -2*v[1]*q[0] - 4*v[2]*q[3] + 2*v[3]*q[2]],
+                         [ 2*v[1]*q[2] - 2*v[2]*q[1],                 2*v[1]*q[3] - 2*v[2]*q[0] - 4*v[3]*q[1],  2*v[1]*q[0] + 2*v[2]*q[3] - 4*v[3]*q[2],   2*v[1]*q[1] + 2*v[2]*q[2]              ]])
 
     def update(self, acc, gyr, mag, dt):
         # Prepare data
-        acc = mt.Quaternion(0, *acc / np.linalg.norm(acc))
-        mag = mt.Quaternion(0, *mag / np.linalg.norm(mag))
-        gyr = mt.Quaternion(0, *gyr)
+        acc /= np.linalg.norm(acc)
+        mag /= np.linalg.norm(mag)
 
         # Update B-field
         # Rotate measurement into earth frame
@@ -121,8 +120,7 @@ class MadgwickMagReadable(object):
         # Gyro bias estimation
         gyrError = 2 * self.q.conjugate() * grad
         self.gyrBias += self.zeta * gyrError * dt
-
-        dQOmega = 0.5 * self.q * (gyr - self.gyrBias)
+        dQOmega = 0.5 * self.q * mt.Quaternion(0, *gyr - self.gyrBias)
 
         # Update quaternion estiamte
         self.q += (dQOmega - self.beta * grad) * dt
