@@ -8,7 +8,7 @@
 
 import numpy as np
 from scipy import linalg
-import orientation_tools as ot
+# import orientation_tools as ot
 
 # np.random.seed(2)
 
@@ -20,6 +20,7 @@ def load_src(name, fpath):
 
 
 mt = load_src('mathTools', 'quaternion/quaternion.py')
+ot = load_src('ot', 'orientation_tools.py')
 
 
 def adj3x3(a):
@@ -249,6 +250,18 @@ def calcLambdaMax2Obs(ref, obs, wei=None):
         return np.sqrt(2 * (1 + wei[0] * wei[1] * (obs[:, 0].dot(obs[:, 1] * ref[:, 0].dot(ref[:, 1]) + np.cross(obs[:, 0], obs[:, 1]) * np.cross(ref[:, 0], ref[:, 1])))))
     else:
         return np.sqrt(wei[0]**2 + wei[1]**2 + 2 * wei[0] * wei[1] * (obs[:, 0].dot(obs[:, 1] * ref[:, 0].dot(ref[:, 1]) + np.cross(obs[:, 0], obs[:, 1]) * np.cross(ref[:, 0], ref[:, 1]))))
+
+
+# Attitude determination using two vector measurements.
+# F. Landis Markley
+# https://ntrs.nasa.gov/archive/nasa/casi.ntrs.nasa.gov/19990052720.pdf
+
+# Implementation of Reynolds direct quaternion estimation.
+# (Missing) Shuster's sequential rotation method for singularity avoidance is implemented as well
+def directQuaternion(accS, magS, accE, magE):
+    q = mt.Quaternion(magS.dot(accE) - accS.dot(magE), *np.cross(accS - accE, magS - magE))
+    q.normalize()
+    return q
 
 
 if __name__ == "__main__":
