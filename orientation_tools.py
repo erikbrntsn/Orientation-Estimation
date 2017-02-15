@@ -55,11 +55,11 @@ def axisAngle(vA, vB):
 def commonAxisAngle(vA, vB, uA, uB):
     # Find common axis
     dV = vA - vB
-    dVNorm = np.linalg.norm(dV)
-    dV /= dVNorm
+    # dVNorm = np.linalg.norm(dV)
+    # dV /= dVNorm
     dU = uA - uB
-    dUNorm = np.linalg.norm(dU)
-    dU /= dUNorm
+    # dUNorm = np.linalg.norm(dU)
+    # dU /= dUNorm
     axis = np.cross(dV, dU)
     norm = np.linalg.norm(axis)
     axis /= norm
@@ -68,7 +68,8 @@ def commonAxisAngle(vA, vB, uA, uB):
     dotV = perpVA.dot(perpVB)
     # Needed due to finite numerical precision
     dotV = -1 if dotV < -1 else 1 if dotV > 1 else dotV
-    return axis, dotV, norm, dVNorm, dUNorm
+    # return axis, dotV, norm, dVNorm, dUNorm
+    return axis, dotV
 
 
 def axisAngleToQuaternion(axis, angle):
@@ -82,14 +83,15 @@ def axisDotToQuaternion(axis, dot):
 
 def quaternionFromTwoVectorObservations(vA, vB, uA, uB):
     # Find common axis
-    axis, dotV, norm, dVNorm, dUNorm = commonAxisAngle(vA, vB, uA, uB)
+    # axis, dotV, norm, dVNorm, dUNorm = commonAxisAngle(vA, vB, uA, uB)
+    axis, dotV = commonAxisAngle(vA, vB, uA, uB)
     perpUA = perpendicular(uA, axis, True, True, True)
     perpUB = perpendicular(uB, axis, True, True, True)
     dotU = perpUA.dot(perpUB)
     dotU = -1 if dotU < -1 else 1 if dotU > 1 else dotU
-    if np.cross(uA, uB).dot(axis) < 0:
-        if np.cross(vA, vB).dot(axis) < 0:
-            axis *= -1
+    # if np.cross(uA, uB).dot(axis) < 0:
+    #     if np.cross(vA, vB).dot(axis) < 0:
+    #         axis *= -1
             # print("flipped")
         # else:
             # pass
@@ -98,9 +100,11 @@ def quaternionFromTwoVectorObservations(vA, vB, uA, uB):
         # pass
         # print("v alone indicates flip is needed")
     # dot = 0.5 * (dotV + dotU)
-    dot = (dotV*dVNorm + dotU*dUNorm) / (dVNorm + dUNorm)
-    qual = (1 - norm) * (1 - 0.5 * abs(dotU - dotV))**2
-    return axisDotToQuaternion(axis, dot), 1 - qual**2
+    # dot = (dotV*dVNorm + dotU*dUNorm) / (dVNorm + dUNorm)
+    dot = (dotU + dotV) / 2
+    # qual = (1 - norm) * (1 - 0.5 * abs(dotU - dotV))**2
+    # return axisDotToQuaternion(axis, dot), 1 - qual**2
+    return axisDotToQuaternion(axis, dot)
 
 
 def correctCommonAxisQuaternion(qNew, qOld):
@@ -240,3 +244,43 @@ def dcm2Qua(rot):
     return q / q.norm()
 
 # def shustersRotation(vA, vB, uA, uB):
+
+
+def eulerToQuaternionGeneral(euler, seq):
+    # Assuming euler = (theta_3, theta_2, theta_1)
+    # seq = abc, a,b,c, \in {x, y, z}. R = R_a(theta_3) * R_b(theta_2) * R_c(theta_1)
+    # Example seq = 'xyx' => R = R_x(theta_3) * R_y(theta_2) * R_x(theta_1)
+    q = 1
+    for i in range(3):
+        if seq[i] == 'x':
+            q *= mt.Quaternion(np.cos(euler[i]/2), -np.sin(euler[i]/2), 0, 0)
+        elif seq[i] == 'y':
+            q *= mt.Quaternion(np.cos(euler[i]/2), 0, -np.sin(euler[i]/2), 0)
+        elif seq[i] == 'z':
+            q *= mt.Quaternion(np.cos(euler[i]/2), 0, 0, -np.sin(euler[i]/2))
+    return q
+
+
+def eulerToRotMatGeneral(euler, seq):
+  # Assuming euler = (theta_3, theta_2, theta_1) and
+  # seq = abc, (a,b,c, \in {x, y, z}). R = R_a(theta_3) * R_b(theta_2) * R_c(theta_1)
+  # Example seq = 'xyx' => R = R_x(theta_3) * R_y(theta_2) * R_x(theta_1)
+  r = 1
+  for i in range(3):
+    c = np.cos(euler[i])
+    s = np.sin(euler[i])
+    if seq[i] == 'x':
+      r = np.dot(r, np.array([[ 1, 0, 0],
+                              [ 0, c, s],
+                              [ 0,-s, c]]))
+
+    elif seq[i] == 'y':
+      r = np.dot(r, np.array([[ c, 0,-s],
+                              [ 0, 1, 0],
+                              [ s, 0, c]]))
+
+    elif seq[i] == 'z':
+      r = np.dot(r, np.array([[ c, s, 0],
+                              [-s, c, 0],
+                              [ 0, 0, 1]]))
+  return r
