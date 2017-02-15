@@ -4,13 +4,10 @@
 # http://www.malcolmdshuster.com/Pub_2007a_C_cquest_MDS.pdf
 
 # Note that the quaternion is implemented as q = (a, b*i, c*j, d*k)
-# instead of convention used in Marley's article q = (b*i, c*j, d*k, a)
+# instead of convention used in F. Landis Marley's article: q = (b*i, c*j, d*k, a)
 
 import numpy as np
 from scipy import linalg
-# import orientation_tools as ot
-
-# np.random.seed(2)
 
 
 def load_src(name, fpath):
@@ -54,14 +51,12 @@ def lossFunction(rot, ref, obs, wei=None):
         return wei.dot(np.sum((obs - rot.dot(ref))**2, axis=0))[0]
 
 
-def firstSolution(B):
-    w, h = linalg.polar(B)
+def firstSolution(b):
+    w, h = linalg.polar(b)
     detW = linalg.det(w)
     if detW > 0:
-        # print("detW was positive")
         return w
     else:
-        # print("detW was not positive")
         eigVal, eigVec = linalg.eig(h)
         indeces = np.argsort(eigVal)
         v = np.array([eigVec[:, indeces[2]],
@@ -78,6 +73,21 @@ def unconstrainedLeastSquares(b, ref, wei=None):
     if wei is None:
         wei = np.ones(ref.shape[1])[:, None]
     return b.dot(linalg.inv(constructB(ref, ref, wei)))
+
+
+# http://stackoverflow.com/a/23082112
+def orthogonalizeMat(a):
+    # Approximate orthogonalization
+    error = a[:, 0].dot(a[:, 1])
+    dx = a[:, 1] * error/2
+    dy = a[:, 0] * error/2
+    a[:, 0] -= dx
+    a[:, 1] -= dy
+    a[:, 2] = np.cross(a[:, 0], a[:, 1])
+    a[:, 0] /= np.linalg.norm(a[:, 0])
+    a[:, 1] /= np.linalg.norm(a[:, 1])
+    a[:, 2] /= np.linalg.norm(a[:, 2])
+    return a
 
 
 def helper(b):
@@ -291,6 +301,7 @@ if __name__ == "__main__":
     if n > 2:
         print("Loss from alternateSolution rotation: {:0.4f}".format(lossFunction(alternateSolution(b), ref, obs)))
         print("Loss from unconstrainedLeastSquares rotation: {:0.4f}".format(lossFunction(unconstrainedLeastSquares(b, ref), ref, obs)))
+        print("Loss from unconstrainedLeastSquares rotation with orthogonalization : {:0.4f}".format(lossFunction(orthogonalizeMat(unconstrainedLeastSquares(b, ref)), ref, obs)))
     else:
         print("Loss from alternateSolution rotation: N/A. Needs more than to vectors")
         print("Loss from unconstrainedLeastSquares rotation: N/A. Needs more than to vectors")
