@@ -6,6 +6,9 @@
 # Note that the quaternion is implemented as q = (a, b*i, c*j, d*k)
 # instead of convention used in F. Landis Marley's article: q = (b*i, c*j, d*k, a)
 
+# Several of these methods needs more thorough testing as well as speed optimizations.
+# And maybe a broader and more detailed literature scrutiny. They all seem to work as intended though
+
 import numpy as np
 from scipy import linalg
 
@@ -91,11 +94,7 @@ def orthogonalizeMat(a):
 
 
 def helper(b):
-    z = np.array([b[2, 1] - b[1, 2],
-                  b[0, 2] - b[2, 0],
-                  b[1, 0] - b[0, 1]])
-    s = b + b.T
-    traceB = np.trace(b)
+    s, traceB, z = helper2(b)
     k = np.empty((4, 4))
     k[0:-1, 0:-1] = s - np.eye(3) * traceB
     k[0:-1, -1] = z
@@ -157,14 +156,6 @@ def foam(b, wei):
     lambdaMax, alpha, normBSq = calcLambdaMaxNewtonFOAM(b, wei.sum())
     kappa = 0.5 * alpha
     return ((kappa + normBSq) * b + lambdaMax * adj3x3(b.T) - b.dot(b.T).dot(b)) / (kappa * lambdaMax - linalg.det(b))
-
-
-def foamQ(b, wei):
-    lambdaMax, alpha, normBSq = calcLambdaMaxNewtonFOAM(b, wei.sum())
-    kappa = 0.5 * alpha
-    a = ((kappa + normBSq) * b + lambdaMax * adj3x3(b.T) - b.dot(b.T).dot(b)) / (kappa * lambdaMax - linalg.det(b))
-    q = ot.dcm2Qua(a)
-    return q
 
 
 def calcLambdaMaxESOQ(k, s, traceB, z):
@@ -240,8 +231,7 @@ def esoq(b, wei):
         if i < 3:
             I[i] -= 1
     q = mt.Quaternion(qElements[3], *qElements[:3])
-    q.normalize()
-    return q
+    return q / q.norm()
 
 
 def esoq2(b, wei):
@@ -267,11 +257,41 @@ def calcLambdaMax2Obs(ref, obs, wei=None):
 # https://ntrs.nasa.gov/archive/nasa/casi.ntrs.nasa.gov/19990052720.pdf
 
 # Implementation of Reynolds direct quaternion estimation.
-# (Missing) Shuster's sequential rotation method for singularity avoidance is implemented as well
-def directQuaternion(accS, magS, accE, magE):
-    q = mt.Quaternion(magS.dot(accE) - accS.dot(magE), *np.cross(accS - accE, magS - magE))
-    q.normalize()
-    return q
+def directQuaternion(accB, magB, accE, magE):
+    # Estimates the quaternion solving {}^Br = q * {}^Er q^*
+    q = mt.Quaternion(accB.dot(magE) - magB.dot(accE), *np.cross(accB - accE, magB - magE))
+    return q / q.norm()
+
+
+# Shuster's sequential rotation method for singularity avoidance is implemented as well
+class DirectQuaternionShuster(object):
+    def __init__(self, accE, magE):
+        self.setReferenceVectors(accE, magE)
+
+    def setReferenceVectors(self, accE, magE):
+        self.accEs = np.array([accE,
+                              [ accE[0], -accE[1], -accE[2]],
+                              [-accE[0],  accE[1], -accE[2]],
+                              [-accE[0], -accE[1],  accE[2]]])
+        self.magEs = np.array([magE,
+                              [ magE[0], -magE[1], -magE[2]],
+                              [-magE[0],  magE[1], -magE[2]],
+                              [-magE[0], -magE[1],  magE[2]]])
+
+    def estimate(self, accB, magB):
+        crosss = np.cross(accB - self.accEs, magB - self.magEs)
+        norms = np.sum(crosss**2, axis=1)
+        best = np.argmax(norms)
+        q0 = accB.dot(self.magEs[best]) - magB.dot(self.accEs[best])
+        if best == 0:
+          q = mt.Quaternion(           q0,  crosss[best][0],  crosss[best][1],  crosss[best][2])
+        elif best == 1:
+          q = mt.Quaternion( crosss[best][0],           -q0, -crosss[best][2],  crosss[best][1])
+        elif best == 2:
+          q = mt.Quaternion( crosss[best][1],  crosss[best][2],           -q0, -crosss[best][0])
+        elif best == 3:
+          q = mt.Quaternion( crosss[best][2], -crosss[best][1],  crosss[best][0],           -q0)
+        return q / q.norm()
 
 
 if __name__ == "__main__":
@@ -293,7 +313,7 @@ if __name__ == "__main__":
 
     wei = np.ones(n)
 
-    # Needed by all methods
+    # Needed by all methods below
     b = constructB(ref, obs)
 
     print("Loss from true rotation: {:0.4f}".format(lossFunction(trueQ, ref, obs)))
@@ -309,6 +329,5 @@ if __name__ == "__main__":
     print("Loss from quest rotation: {:0.4f}".format(lossFunction(quest(b, wei), ref, obs)))
     print("Loss from svd rotation: {:0.4f}".format(lossFunction(svd(b), ref, obs)))
     print("Loss from foam rotation: {:0.4f}".format(lossFunction(foam(b, wei), ref, obs)))
-    # print("Loss from foamQ rotation: {:0.4f}".format(lossFunction(foamQ(b, wei), ref, obs)))
     print("Loss from esoq rotation: {:0.4f}".format(lossFunction(esoq(b, wei), ref, obs)))
     print("Loss from esoq2 rotation: {:0.4f}".format(lossFunction(esoq2(b, wei), ref, obs)))
