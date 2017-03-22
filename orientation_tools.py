@@ -116,13 +116,16 @@ def correctCommonAxisQuaternion(qNew, qOld):
 
 
 def slerp(q1, q2, t):
-    # # Spherical:
-    # dot = q1.dot(q2)
-    # dot = -1 if dot < -1 else 1 if dot > 1 else dot
-    # theta = np.arccos(dot)
-    # return (np.sin(t * theta) * q2 + np.sin((1 - t) * theta) * q1)/np.sin(theta)
+    # Linear Spherical Interpolation from q1 to q2 parameterized t
+    # Spherical:
+    dot = q1.dot(q2)
+    if np.abs(dot) >= 1:
+        return q1
+    else:
+        theta = np.arccos(dot)
+        return (np.sin(t * theta) * q2 + np.sin((1 - t) * theta) * q1)/np.sin(theta)
     # Linear:
-    return (1 - t) * q1 + t * q2
+    # return (1 - t) * q1 + t * q2
 
 
 def eulerToQuaternion(e):
