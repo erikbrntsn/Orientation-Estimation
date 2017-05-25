@@ -1,4 +1,6 @@
 import numpy as np
+from rotmats import allRotMats as allRotMatsP
+from rotmats_active import allRotMats as allRotMatsA
 
 
 def load_src(name, fpath):
@@ -151,28 +153,75 @@ def quaternionToAxisAngle(q):
         return np.array([0, 0, 0]), 0
     return q[1:] / s, 2 * np.arccos(q[0])
 
-# def quaternionToEuler(q):
-#     """ Return euler angles (R_X*R_Y*R_Z) equivalent to quaternion q """
-#     e = [np.arctan2(2*(q[0]*q[1] + q[2]*q[3]), 1 - 2*(q[1]**2 + q[2]**2)),
-#          np.arcsin( 2*(q[0]*q[2] - q[3]*q[1])),
-#          np.arctan2(2*(q[0]*q[3] + q[1]*q[2]), 1 - 2*(q[2]**2 + q[3]**2))]
-#     return e
+
+# https://ntrs.nasa.gov/archive/nasa/casi.ntrs.nasa.gov/19770024290.pdf
+# Note error in paper for 'yxz' m_31 should have been m_13
+def rotMatToEuler(r, order):
+    # returns (theta_3, theta_2, theta_1) as in R_ijk = R_i(theta_3) * R_j(theta_2) * R_k(theta_1)
+    if order == 'xyx':
+        return np.array([np.arctan2(r[0, 1], r[0, 2]),
+                         np.arctan2(np.sqrt(1 - r[0, 0]**2), r[0, 0]),
+                         np.arctan2(r[1, 0], -r[2, 0])])
+
+    elif order == 'xyz':
+        return np.array([np.arctan2(-r[0, 1], r[0, 0]),
+                         np.arctan2(r[0, 2], np.sqrt(1 - r[0, 2]**2)),
+                         np.arctan2(-r[1, 2], r[2, 2])])
+
+    elif order == 'xzx':
+        return np.array([np.arctan2(r[0, 2], -r[0, 1]),
+                         np.arctan2(np.sqrt(1 - r[0, 0]**2), r[0, 0]),
+                         np.arctan2(r[2, 0], r[1, 0])])
+
+    elif order == 'xzy':
+        return np.array([np.arctan2(r[0, 2], r[0, 0]),
+                         np.arctan2(-r[0, 1], np.sqrt(1 - r[0, 1]**2)),
+                         np.arctan2(r[2, 1], r[1, 1])])
+
+    elif order == 'yxy':
+        return np.array([np.arctan2(r[1, 0], -r[1, 2]),
+                         np.arctan2(np.sqrt(1 - r[1, 1]**2), r[1, 1]),
+                         np.arctan2(r[0, 1], r[2, 1])])
+
+    elif order == 'yxz':
+        return np.array([np.arctan2(r[1, 0], r[1, 1]),
+                         np.arctan2(-r[1, 2], np.sqrt(1 - r[1, 2]**2)),
+                         np.arctan2(r[0, 2], r[2, 2])])
+
+    elif order == 'yzx':
+        return np.array([np.arctan2(-r[1, 2], r[1, 1]),
+                         np.arctan2(r[1, 0], np.sqrt(1 - r[1, 0]**2)),
+                         np.arctan2(-r[2, 0], r[0, 0])])
+
+    elif order == 'yzy':
+        return np.array([np.arctan2(r[1, 2], r[1, 0]),
+                         np.arctan2(np.sqrt(1 - r[1, 1]**2), r[1, 1]),
+                         np.arctan2(r[2, 1], -r[0, 1])])
+
+    elif order == 'zxy':
+        return np.array([np.arctan2(-r[2, 0], r[2, 2]),
+                         np.arctan2(r[2, 1], np.sqrt(1 - r[2, 1]**2)),
+                         np.arctan2(-r[0, 1], r[1, 1])])
+
+    elif order == 'zxz':
+        return np.array([np.arctan2(r[2, 0], r[2, 1]),
+                         np.arctan2(np.sqrt(1 - r[2, 2]**2), r[2, 2]),
+                         np.arctan2(r[0, 2], -r[1, 2])])
+
+    elif order == 'zyx':
+        return np.array([np.arctan2(r[2, 1], r[2, 2]),
+                         np.arctan2(-r[2, 0], np.sqrt(1 - r[2, 0]**2)),
+                         np.arctan2(r[1, 0], r[0, 0])])
+
+    elif order == 'zyz':
+        return np.array([np.arctan2(r[2, 1], -r[2, 0]),
+                         np.arctan2(np.sqrt(1 - r[2, 2]**2), r[2, 2]),
+                         np.arctan2(r[1, 2], r[0, 2])])
 
 
-def quaternionToEuler(q):
-    """ Return euler angles (R_Z*R_Y*R_X) equivalent to quaternion q """
-    e = [np.arctan2(2 * (q[0] * q[3] + q[1] * q[2]), 1 - 2 * (q[2]**2 + q[3]**2)),
-         np.arcsin( 2 * (q[0] * q[2] - q[3] * q[1])),
-         np.arctan2(2 * (q[0] * q[1] + q[2] * q[3]), 1 - 2 * (q[1]**2 + q[2]**2))]
-    return e
-
-
-# def quaternionToEuler(q):
-#     """ Return euler angles (R_Z*R_Y*R_X) equivalent to quaternion q """
-#     e = [np.arctan2(2*(q[1]*q[2] + q[0]*q[3]), q[0]*q[0] + q[1]*q[1] - q[2]*q[2] - q[3]*q[3]),
-#          np.arcsin(-2*(q[1]*q[3] - q[0]*q[2])),
-#          np.arctan2(2*(q[2]*q[3] + q[0]*q[1]), q[0]*q[0] - q[1]*q[1] - q[2]*q[2] + q[3]*q[3])]
-#     return e
+def quaternionToEuler(q, order):
+    r = quaternionToRotMat(q)
+    return rotMatToEuler(r, order)
 
 
 def quaternionToRotMat(q):
@@ -190,28 +239,6 @@ def quaternionToRotMat(q):
     return r
 
 
-def eulerToRotMat(e):
-    """ Return rotation matrix rotating according to R = R_Z(yaw) * R_Y(pitch) * R_X(roll) from
-    euler angles [yaw(psi), pitch(theta), roll(phi)] """
-    sYaw = np.sin(e[0])
-    cYaw = np.cos(e[0])
-    sPit = np.sin(e[1])
-    cPit = np.cos(e[1])
-    sRol = np.sin(e[2])
-    cRol = np.cos(e[2])
-    r = np.empty((3, 3))
-    r[0, 0] =  cPit * cYaw
-    r[1, 0] =  cPit * sYaw
-    r[2, 0] = -sPit
-    r[0, 1] = -cRol * sYaw + cYaw * sRol * sPit
-    r[1, 1] =  cRol * cYaw + sRol * sPit * sYaw
-    r[2, 1] =  cPit * sRol
-    r[0, 2] =  sRol * sYaw + cRol * cYaw * sPit
-    r[1, 2] = -cYaw * sRol + cRol * sPit * sYaw
-    r[2, 2] =  cRol * cPit
-    return r
-
-
 def mostOrthogonal(v):
     x = np.abs(v[0])
     y = np.abs(v[1])
@@ -223,30 +250,46 @@ def mostOrthogonal(v):
     return np.cross(v, rhs)
 
 
-def dcm2Qua(rot):
-    t = rot[0, 0] + rot[1, 1] + rot[2, 2]
-    if t > -0.99:
-        r = np.sqrt(1 + t)
-        s = 0.5 / r
-        q = mt.Quaternion(0.5 * r,
-                          (rot[2, 1] - rot[1, 2]) * s,
-                          (rot[0, 2] - rot[2, 0]) * s,
-                          (rot[1, 0] - rot[0, 1]) * s)
-    elif rot[1, 1] < rot[0, 0] and rot[2, 2] < rot[0, 0]:
-        t = rot[0, 0] + rot[1, 1] + rot[2, 2]
-        r = np.sqrt(1 + rot[0, 0] - rot[1, 1] - rot[2, 2])
-        s = 0.5 / r
-        mt.Quaternion((rot[2, 1] - rot[1, 2]) * s,
-                      0.5 * r,
-                      (rot[0, 1] + rot[1, 0]) * s,
-                      (rot[2, 0] + rot[0, 2]) * s)
-    elif rot[0, 0] < rot[1, 1] and rot[2, 2] < rot[1, 1]:
-        raise NotImplemented
-    else:
-        raise NotImplemented
-    return q / q.norm()
+# http://www.euclideanspace.com/maths/geometry/rotations/conversions/matrixToQuaternion/index.htm
+def rotMatToQuaternion(r):
+    q = mt.Quaternion(np.sqrt(max([0, 1 + r[0, 0] + r[1, 1] + r[2, 2]])) / 2,
+                      np.sqrt(max([0, 1 + r[0, 0] - r[1, 1] - r[2, 2]])) / 2,
+                      np.sqrt(max([0, 1 - r[0, 0] + r[1, 1] - r[2, 2]])) / 2,
+                      np.sqrt(max([0, 1 - r[0, 0] - r[1, 1] + r[2, 2]])) / 2)
+    q[1] = -np.abs(q[1]) if r[2, 1] - r[1, 2] < 0 else np.abs(q[1])
+    q[2] = -np.abs(q[2]) if r[0, 2] - r[2, 0] < 0 else np.abs(q[2])
+    q[3] = -np.abs(q[3]) if r[1, 0] - r[0, 1] < 0 else np.abs(q[3])
+    return q
 
-# def shustersRotation(vA, vB, uA, uB):
+
+# http://www.euclideanspace.com/maths/geometry/rotations/conversions/matrixToQuaternion/index.htm
+def rotMatToQuaternionAlt(r):
+  trace = r[0][0] + r[1][1] + r[2][2]
+  if trace > 0:
+    s = 0.5 / np.sqrt(trace + 1)
+    mt.Quaternion(0.25 / s,
+                  ( r[2][1] - r[1][2] ) * s,
+                  ( r[0][2] - r[2][0] ) * s,
+                  ( r[1][0] - r[0][1] ) * s)
+  else:
+    if r[0][0] > r[1][1] and r[0][0] > r[2][2]:
+      s = 2.0 * np.sqrt( 1 + r[0][0] - r[1][1] - r[2][2])
+      mt.Quaternion((r[2][1] - r[1][2] ) / s,
+                    0.25 * s,
+                    (r[0][1] + r[1][0] ) / s,
+                    (r[0][2] + r[2][0] ) / s)
+    elif r[1][1] > r[2][2]:
+      s = 2.0 * np.sqrt( 1 + r[1][1] - r[0][0] - r[2][2])
+      mt.Quaternion((r[0][2] - r[2][0] ) / s,
+                    (r[0][1] + r[1][0] ) / s,
+                    0.25 * s,
+                    (r[1][2] + r[2][1] ) / s)
+    else:
+      s = 2.0 * np.sqrt( 1 + r[2][2] - r[0][0] - r[1][1] )
+      mt.Quaternion((r[1][0] - r[0][1] ) / s,
+                    (r[0][2] + r[2][0] ) / s,
+                    (r[1][2] + r[2][1] ) / s,
+                    0.25 * s)
 
 
 def eulerToQuaternionGeneral(euler, seq):
@@ -264,26 +307,17 @@ def eulerToQuaternionGeneral(euler, seq):
     return q
 
 
-def eulerToRotMatGeneral(euler, seq):
-  # Assuming euler = (theta_3, theta_2, theta_1) and
-  # seq = abc, (a,b,c, \in {x, y, z}). R = R_a(theta_3) * R_b(theta_2) * R_c(theta_1)
-  # Example seq = 'xyx' => R = R_x(theta_3) * R_y(theta_2) * R_x(theta_1)
-  r = 1
-  for i in range(3):
-    c = np.cos(euler[i])
-    s = np.sin(euler[i])
-    if seq[i] == 'x':
-      r = np.dot(r, np.array([[ 1, 0, 0],
-                              [ 0, c, s],
-                              [ 0,-s, c]]))
+def verifyQuaternionToEuler(q2e, order):
+  error = 0
+  nTests = 100
+  for i in range(nTests):
+    q = mt.Quaternion(*np.random.rand(4) - 0.5)
+    q.normalize()
+    v = np.random.rand(3) - 0.5
+    v /= np.linalg.norm(v)
 
-    elif seq[i] == 'y':
-      r = np.dot(r, np.array([[ c, 0,-s],
-                              [ 0, 1, 0],
-                              [ s, 0, c]]))
+    e = q2e(q, order)
+    r = allRotMatsA[order](e)
 
-    elif seq[i] == 'z':
-      r = np.dot(r, np.array([[ c, s, 0],
-                              [-s, c, 0],
-                              [ 0, 0, 1]]))
-  return r
+    error += np.linalg.norm(q.rotateVector(v) - r.dot(v))
+  return error / nTests
