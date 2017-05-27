@@ -1,5 +1,5 @@
 import numpy as np
-from rotmats import allRotMats as allRotMatsP
+from rotmats_passive import allRotMats as allRotMatsP
 from rotmats_active import allRotMats as allRotMatsA
 
 
@@ -130,28 +130,22 @@ def slerp(q1, q2, t):
     # return (1 - t) * q1 + t * q2
 
 
-def eulerToQuaternion(e):
-    """ Return quaternion representing rotation equivalent to rotation matrix
-    # R = R_Z(yaw) * R_Y(pitch) * R_X(roll) from euler angles [yaw(psi), pitch(theta), roll(phi)].
-    # Quaternion convention: [w, i, j, k] """
-    sYaw = np.sin(e[0] / 2)
-    cYaw = np.cos(e[0] / 2)
-    sPit = np.sin(e[1] / 2)
-    cPit = np.cos(e[1] / 2)
-    sRol = np.sin(e[2] / 2)
-    cRol = np.cos(e[2] / 2)
-    q = mt.Quaternion(cRol * cPit * cYaw + sRol * sPit * sYaw,
-                      sRol * cPit * cYaw - cRol * sPit * sYaw,
-                      cRol * sPit * cYaw + sRol * cPit * sYaw,
-                      cRol * cPit * sYaw - sRol * sPit * cYaw)
-    return q
-
-
 def quaternionToAxisAngle(q):
     s = np.sqrt(1 - q[0] * q[0])
     if s == 0:
         return np.array([0, 0, 0]), 0
     return q[1:] / s, 2 * np.arccos(q[0])
+
+
+def mostOrthogonal(v):
+    x = np.abs(v[0])
+    y = np.abs(v[1])
+    z = np.abs(v[2])
+    if x < y:
+        rhs = np.array([1, 0, 0]) if x < z else np.array([0, 0, 1])
+    else:
+        rhs = np.array([0, 1, 0]) if y < z else np.array([0, 0, 1])
+    return np.cross(v, rhs)
 
 
 # https://ntrs.nasa.gov/archive/nasa/casi.ntrs.nasa.gov/19770024290.pdf
@@ -239,17 +233,6 @@ def quaternionToRotMat(q):
     return r
 
 
-def mostOrthogonal(v):
-    x = np.abs(v[0])
-    y = np.abs(v[1])
-    z = np.abs(v[2])
-    if x < y:
-        rhs = np.array([1, 0, 0]) if x < z else np.array([0, 0, 1])
-    else:
-        rhs = np.array([0, 1, 0]) if y < z else np.array([0, 0, 1])
-    return np.cross(v, rhs)
-
-
 # http://www.euclideanspace.com/maths/geometry/rotations/conversions/matrixToQuaternion/index.htm
 def rotMatToQuaternion(r):
     q = mt.Quaternion(np.sqrt(max([0, 1 + r[0, 0] + r[1, 1] + r[2, 2]])) / 2,
@@ -292,17 +275,17 @@ def rotMatToQuaternionAlt(r):
                     0.25 * s)
 
 
-def eulerToQuaternionGeneral(euler, seq):
+def eulerToQuaternionGeneral(euler, order):
     # Assuming euler = (theta_3, theta_2, theta_1)
-    # seq = abc, a,b,c, \in {x, y, z}. R = R_a(theta_3) * R_b(theta_2) * R_c(theta_1)
-    # Example seq = 'xyx' => R = R_x(theta_3) * R_y(theta_2) * R_x(theta_1)
+    # order = abc, a,b,c, \in {x, y, z}. R = R_a(theta_3) * R_b(theta_2) * R_c(theta_1)
+    # Example order = 'xyx' => R = R_x(theta_3) * R_y(theta_2) * R_x(theta_1)
     q = 1
     for i in range(3):
-        if seq[i] == 'x':
+        if order[i] == 'x':
             q *= mt.Quaternion(np.cos(euler[i]/2), -np.sin(euler[i]/2), 0, 0)
-        elif seq[i] == 'y':
+        elif order[i] == 'y':
             q *= mt.Quaternion(np.cos(euler[i]/2), 0, -np.sin(euler[i]/2), 0)
-        elif seq[i] == 'z':
+        elif order[i] == 'z':
             q *= mt.Quaternion(np.cos(euler[i]/2), 0, 0, -np.sin(euler[i]/2))
     return q
 
