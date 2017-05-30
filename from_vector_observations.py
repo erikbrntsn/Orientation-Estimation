@@ -266,13 +266,16 @@ def directQuaternion(accB, magB, accE, magE):
 # Shuster's sequential rotation method for singularity avoidance is implemented as well
 class DirectQuaternionShuster(object):
     def __init__(self, accE, magE):
-        self.setReferenceVectors(accE, magE)
+        self.setAccRef(accE)
+        self.setMagRef(magE)
 
-    def setReferenceVectors(self, accE, magE):
+    def setAccRef(self, accE):
         self.accEs = np.array([accE,
                               [ accE[0], -accE[1], -accE[2]],
                               [-accE[0],  accE[1], -accE[2]],
                               [-accE[0], -accE[1],  accE[2]]])
+
+    def setMagRef(self, magE):
         self.magEs = np.array([magE,
                               [ magE[0], -magE[1], -magE[2]],
                               [-magE[0],  magE[1], -magE[2]],
